@@ -1,0 +1,28 @@
+[package]
+name = "neut"
+version = "0.1.0"
+edition = "2021"
+description = "Neutronium.js — fast, modular JavaScript runtime in Rust"
+license = "MIT"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+boa_engine = "0.19"
+libloading = "0.8"
+
+[features]
+default = ["boa"]
+boa = []
+llvm = []
+cranelift = []
+
+[[bin]]
+name = "neut"
+path = "src/main.rs"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = true
