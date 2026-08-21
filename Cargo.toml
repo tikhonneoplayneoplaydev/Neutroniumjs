@@ -4,18 +4,40 @@ version = "0.1.0"
 edition = "2021"
 description = "Neutronium.js — fast, modular JavaScript runtime in Rust"
 license = "MIT"
+readme = "README.md"
+repository = "https://github.com/tikhonneoplayneoplaydev/Neutroniumjs"
 
 [dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 boa_engine = "0.19"
 libloading = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# A working executable JIT. Cranelift is a real, in-process code generator —
+# no external toolchain is required at runtime. It is wired up by default so
+# `cargo test` actually exercises generated machine code.
+cranelift-jit = { version = "0.105", optional = true }
+cranelift-module = { version = "0.105", optional = true }
+cranelift-native = { version = "0.105", optional = true }
+cranelift = { version = "0.105", optional = true }
+
+# LLVM is intentionally isolated behind its own optional feature. Enabling it
+# pulls in the LLVM bindings; the rest of the runtime never depends on LLVM.
+inkwell = { version = "0.3", optional = true, default-features = false }
 
 [features]
-default = ["boa"]
+default = ["cranelift"]
 boa = []
-llvm = []
-cranelift = []
+cranelift = [
+    "dep:cranelift",
+    "dep:cranelift-jit",
+    "dep:cranelift-module",
+    "dep:cranelift-native",
+]
+# LLVM needs a target feature, e.g. `--features llvm/llvm-17`. It stays opt-in.
+llvm = ["dep:inkwell"]
 
 [[bin]]
 name = "neut"
