@@ -1,6 +1,9 @@
 # Neutronium.js ⚡
 
-Быстрый модульный JavaScript runtime на Rust. Проект даёт компактное ядро, CLI `neut`, REPL, безопасный слой расширений и основу для подключаемых JIT/AOT бэкендов (Cranelift и LLVM), а также вызовов C ABI через FFI.
+Быстрый модульный JavaScript runtime на Rust. Проект даёт компактное ядро, CLI
+`neut`, REPL, безопасный слой расширений, рабочий **Cranelift executable JIT**,
+изолированный **LLVM**-бэкенд, собственный формат модулей **`.nim`** и вызовы
+C ABI через FFI.
 
 ## Быстрый старт
 
@@ -8,38 +11,64 @@
 git clone https://github.com/tikhonneoplayneoplaydev/Neutroniumjs.git
 cd Neutroniumjs
 cargo build --release
-# Linux/macOS:
 cargo install --path .
-# или добавьте бинарник в PATH:
-export PATH="$PWD/target/release:$PATH"
-neut hello.js
+neut examples/hello.js
 ```
 
-Для постоянной установки (рекомендуется) `cargo install --path .` сам помещает `neut` в Cargo bin (`~/.cargo/bin`), который обычно уже находится в PATH. Windows: `cargo install --path .`, затем откройте новый терминал.
+## Возможности
 
 ```bash
-neut run app.js       # запуск файла
-neut repl             # интерактивная консоль
-neut info             # версия и активный backend
-neut build --backend jit
-neut ffi ./libmath.so add
+neut run app.js                       # запустить JavaScript-файл (Boa)
+neut repl                             # интерактивная консоль
+neut info                             # версия и активный backend
+neut jit "(1+2)*3"                    # исполнить выражение через Cranelift JIT
+neut ffi ./libhello.so neut_init      # проверить C-символ в нативной библиотеке
+neut load ./libhello.so               # загрузить нативный модуль (stable ABI)
+
+# .nim — собственный контейнер модулей
+neut pack ./mymod --name mymod --version 1.0.0
+neut unpack ./mymod.nim --out ./out
+neut manifest ./mymod.nim
 ```
 
-## Архитектура и roadmap
+### `.nim`-модули
 
-- **Core**: Rust API и минимальный CLI, изолированный runtime-контекст.
-- **JIT/AOT**: backend trait готов для подключения Cranelift/LLVM без изменения CLI; сборка по умолчанию не тащит тяжёлые toolchain-зависимости.
-- **FFI/C ABI**: модуль `ffi` проверяет наличие C-символа в `.so`, `.dylib` или `.dll`; безопасные объявления функций рекомендуется оборачивать в Rust-модули.
-- **Modules**: ES-модули и npm-совместимый registry — следующий слой, планируется в `modules/`.
+`.nim` — это простой детерминированный контейнер: магическая строка `NIM1`,
+JSON-манифест (`name`, `version`, `main`, `dependencies`, …) и список файлов с
+относительными путями. Пуси нормализуются, `..` и абсолютные пути запрещены,
+запись идёт в отсортированном порядке, поэтому упаковка одного и того же
+каталога всегда даёт идентичные байты. API находится в [`src/nim.rs`](src/nim.rs).
 
-> Сейчас JS исполняется встроенным Boa engine. LLVM/Cranelift интерфейс обозначен feature-флагами и будет развиваться отдельными backend-крейтами; это позволяет собрать и запустить проект без LLVM SDK.
+### JIT/AOT бэкенды
+
+- **Cranelift JIT** (`cranelift` feature, включён по умолчанию): реальный
+  исполняемый JIT в [`src/cranelift_backend.rs`](src/cranelift_backend.rs).
+  Парсит арифметическое выражение, опускает его в Cranelift IR, компилирует в
+  машинный код и вызывает через `extern "C"` указатель. Никаких внешних
+  тулчейнов в рантайме не требуется.
+- **LLVM** (`llvm` feature, опционально): полностью изолирован в
+  [`src/llvm_backend.rs`](src/llvm_backend.rs) и подключается через `inkwell`.
+  Остальной код о LLVM ничего не знает. Сборка требует системного LLVM:
+
+  ```bash
+  cargo check --no-default-features --features "llvm/llvm-17"
+  ```
+
+Трейт бэкенда [`CompilerBackend`](src/backend.rs) отделяет хост (Boa) от
+генераторов кода, поэтому новые бэкенды добавляются без изменений CLI.
+
+### FFI / C ABI
+
+Весь `unsafe`-код собран в [`src/ffi.rs`](src/ffi.rs). Указатели одалживаются
+только на время вызова, Rust не владеет нативной памятью. ABI описан в
+[`native/neutronium.h`](native/neutronium.h).
 
 ## Разработка
 
 ```bash
+cargo fmt --all
+cargo check --all-targets
 cargo test
-cargo fmt
-cargo clippy --all-targets --all-features
 ```
 
 Лицензия MIT.

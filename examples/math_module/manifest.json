@@ -1,0 +1,7 @@
+{
+  "name": "math",
+  "version": "1.0.0",
+  "description": "Tiny math module used to demonstrate `neut pack` / `neut unpack`.",
+  "main": "index.js",
+  "dependencies": {}
+}
